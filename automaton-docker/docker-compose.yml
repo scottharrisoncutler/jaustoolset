@@ -1,0 +1,60 @@
+# docker-compose.yml — Conway Automaton with security-hardened defaults
+#
+# Usage:
+#   docker compose up --build        # build and start
+#   docker compose run automaton sh  # interactive shell inside container
+#   docker compose down -v           # stop and remove volumes
+#
+# See AUTOMATON_DOCKER_GUIDE.md for full details.
+
+services:
+  automaton:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: automaton
+    restart: unless-stopped
+
+    # ── Security constraints ──────────────────────────────────────────
+    # Drop ALL Linux capabilities, then add back only what is needed.
+    cap_drop:
+      - ALL
+
+    # Prevent the container from gaining additional privileges.
+    security_opt:
+      - no-new-privileges:true
+
+    # Read-only root filesystem — the automaton can only write to the
+    # explicitly mounted volumes listed below.
+    read_only: true
+
+    # Memory and CPU limits prevent a runaway process from starving
+    # the host.
+    mem_limit: 1g
+    cpus: "1.0"
+
+    # Temporary filesystems the Node.js runtime needs for caches and
+    # lock files.  These are RAM-backed and size-limited.
+    tmpfs:
+      - /tmp:size=128m
+      - /app/node_modules/.cache:size=64m
+
+    # ── Volumes ───────────────────────────────────────────────────────
+    # Named volume for persistent automaton state (wallet, SOUL.md, DB).
+    volumes:
+      - automaton-state:/home/automaton/.automaton
+
+    # ── Networking ────────────────────────────────────────────────────
+    # Only expose ports if you want the automaton to serve HTTP.
+    # Uncomment the lines below if needed.
+    # ports:
+    #   - "3000:3000"
+
+    # ── Environment ───────────────────────────────────────────────────
+    # Pass in any required environment variables here.
+    # Do NOT hard-code secrets; use a .env file instead.
+    # env_file:
+    #   - .env
+
+volumes:
+  automaton-state:
